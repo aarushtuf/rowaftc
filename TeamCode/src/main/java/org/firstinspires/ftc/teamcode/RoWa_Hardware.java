@@ -58,12 +58,7 @@ public class RoWa_Hardware {
         myOpMode.telemetry.update();
     }
 
-    public NormalizedRGBA getColor(float gain, boolean lightOn){
-
-        if (colorSensor instanceof SwitchableLight) {
-            SwitchableLight light = (SwitchableLight)colorSensor;
-            light.enableLight(lightOn);
-        }
+    public NormalizedRGBA getColor(float gain){
 
         // Tell the sensor our desired gain value (normally you would do this during initialization,
         // not during the loop)
@@ -132,6 +127,10 @@ public class RoWa_Hardware {
         rightFrontMotor.setPower(rightFrontPower);
         rightBackMotor.setPower(rightBackPower);
         myOpMode.telemetry.addData("Motors", "leftFront (%.2f), rightFront (%.2f), leftBack (%.2f) rightBack (%.2f)", leftFrontPower, rightFrontPower, leftBackPower,rightBackPower);
+    }
+
+    public void stopRobot() {
+        setDrivePower(0,0,0,0);
     }
 
 
