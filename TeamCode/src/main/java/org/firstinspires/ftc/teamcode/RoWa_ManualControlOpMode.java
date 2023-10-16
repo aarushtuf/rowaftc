@@ -6,9 +6,8 @@ import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 
-@TeleOp(name="Basic: RoWa Drive OpMode", group="Linear Opmode")
-//@Disabled
-public class RoWa_DriveOpMode extends LinearOpMode {
+@TeleOp(name="RoWa: Manual Control Opmode", group="Linear Opmode")
+public class RoWa_ManualControlOpMode extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();

@@ -4,8 +4,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
-@Autonomous(name="Robot: Auto Drive To Line", group="Linear Opmode")
-public class RoWa_AutoOpMode extends LinearOpMode {
+@Autonomous(name="RoWa: Auto Drive To White Line", group="Linear Opmode")
+public class RoWa_AutoDriveToWhiteLineOpMode extends LinearOpMode {
 
         private RoWa_Hardware robot = new RoWa_Hardware(this);
 
