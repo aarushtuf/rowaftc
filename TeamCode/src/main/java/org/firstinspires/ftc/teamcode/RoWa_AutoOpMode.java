@@ -14,6 +14,7 @@ public class RoWa_AutoOpMode extends LinearOpMode {
 
         @Override
         public void runOpMode() {
+            robot.init();
 
             // Wait for driver to press PLAY)
             // Abort this loop is started or stopped.
