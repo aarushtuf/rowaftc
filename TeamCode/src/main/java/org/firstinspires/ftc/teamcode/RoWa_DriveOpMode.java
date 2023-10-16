@@ -53,8 +53,7 @@ public class RoWa_DriveOpMode extends LinearOpMode {
             } else if (gamepad1.b && gain > 1) { // A gain of less than 1 will make the values smaller, which is not helpful.
                 gain -= 0.005;
             }
-            boolean lightOn = gamepad1.x;
-            NormalizedRGBA color = robot.getColor(gain,lightOn);
+            NormalizedRGBA color = robot.getColor(gain);
             robot.setBackgroundColor(color);
             if(color.red == 1) {
                 //stop
