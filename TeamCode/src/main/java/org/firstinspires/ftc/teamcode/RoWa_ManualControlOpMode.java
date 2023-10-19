@@ -53,21 +53,9 @@ public class RoWa_ManualControlOpMode extends LinearOpMode {
                 gain -= 0.005;
             }
             NormalizedRGBA color = robot.getColor(gain);
-            robot.setBackgroundColor(color);
-            if(color.red == 1) {
-                //stop
-                axial = 0;
-                lateral = 0;
-                yaw = 0;
-            }
+
             //Detect if touch sensor pressed
             boolean isSensorPressed = robot.isTouchSenorPressed();
-            if(isSensorPressed){
-                // if sensor is pressed we have hit something so stop
-                axial = 0;
-                lateral = 0;
-                yaw = 0;
-            }
 
             robot.driveRobot(axial,lateral,yaw);
 

@@ -1,18 +1,20 @@
 package org.firstinspires.ftc.teamcode;
 
-import android.app.Activity;
-import android.graphics.Color;
-import android.view.View;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
-import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.hardware.TouchSensor;
-import com.qualcomm.robotcore.util.Range;
+
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class RoWa_Hardware {
     /* Declare OpMode members. */
@@ -24,11 +26,12 @@ public class RoWa_Hardware {
     private DcMotor leftBackMotor = null; //2
     private DcMotor rightBackMotor = null; //3
 
-    NormalizedColorSensor colorSensor;
+    private NormalizedColorSensor colorSensor;
 
-    TouchSensor touchSensor;  // Touch sensor Object
+    private TouchSensor touchSensor;  // Touch sensor Object
 
-    View relativeLayout;
+    private VisionPortal visionPortal;               // Used to manage the video source.
+    private AprilTagProcessor aprilTag;              // Used for managing the AprilTag detection process.
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public RoWa_Hardware (LinearOpMode opmode) {
@@ -54,9 +57,28 @@ public class RoWa_Hardware {
         //setup touch sensor
         touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
 
+        //Setup webcam for April tag detection
+        // Create the AprilTag processor by using a builder.
+        aprilTag = new AprilTagProcessor.Builder().build();
+
+        // Adjust Image Decimation to trade-off detection-range for detection-rate.
+        // eg: Some typical detection data using a Logitech C920 WebCam
+        // Decimation = 1 ..  Detect 2" Tag from 10 feet away at 10 Frames per second
+        // Decimation = 2 ..  Detect 2" Tag from 6  feet away at 22 Frames per second
+        // Decimation = 3 ..  Detect 2" Tag from 4  feet away at 30 Frames Per Second
+        // Decimation = 3 ..  Detect 5" Tag from 10 feet away at 30 Frames Per Second
+        // Note: Decimation can be changed on-the-fly to adapt during a match.
+        aprilTag.setDecimation(2);
+
+        visionPortal = new VisionPortal.Builder()
+                .setCamera(myOpMode.hardwareMap.get(WebcamName.class, "Webcam 1"))
+                .addProcessor(aprilTag)
+                .build();
+
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
     }
+
 
     public NormalizedRGBA getColor(float gain){
 
@@ -101,20 +123,6 @@ public class RoWa_Hardware {
         setDrivePower(leftFrontPower,rightFrontPower,leftBackPower,rightBackPower);
     }
 
-    public void setBackgroundColor(NormalizedRGBA bgColor){
-        final float[] hsvValues = new float[3];
-        Color.colorToHSV(bgColor.toColor(), hsvValues);
-        myOpMode.telemetry.addLine()
-                .addData("Hue", "%.3f", hsvValues[0])
-                .addData("Saturation", "%.3f", hsvValues[1])
-                .addData("Value", "%.3f", hsvValues[2]);
-        relativeLayout.post(new Runnable() {
-            public void run() {
-                relativeLayout.setBackgroundColor(Color.HSVToColor(hsvValues));
-            }
-        });
-    }
-
     public boolean isTouchSenorPressed(){
         myOpMode.telemetry.addData("Touch Sensor Pressed:", touchSensor.isPressed());
         return touchSensor.isPressed();
@@ -133,5 +141,68 @@ public class RoWa_Hardware {
         setDrivePower(0,0,0,0);
     }
 
+    public AprilTagDetection getAprilTag(int tagId){
+        List<AprilTagDetection> currentDetections = aprilTag.getDetections();
+        if(currentDetections.isEmpty()){
+            myOpMode.telemetry.addData("NoTags", "No tags detected");
+        }
+        for (AprilTagDetection detection : currentDetections) {
+            // Look to see if we have size info on this tag.
+            if (detection.metadata != null) {
+                //  Check to see if we want to track towards this tag.
+                if ((tagId < 0) || (detection.id == tagId)) {
+                    // Yes, we want to use this tag.
+                    myOpMode.telemetry.addData("Tag Found", "ID %d (%s)", detection.id, detection.metadata.name);
+                    myOpMode.telemetry.addData("Range",  "%5.1f inches", detection.ftcPose.range);
+                    myOpMode.telemetry.addData("Bearing","%3.0f degrees", detection.ftcPose.bearing);
+                    myOpMode.telemetry.addData("Yaw","%3.0f degrees", detection.ftcPose.yaw);
+                    //myOpMode.telemetry.update();
+                    return detection;  // don't look any further.
+                } else {
+                    // This tag is in the library, but we do not want to track it right now.
+                    myOpMode.telemetry.addData("Skipping", "Tag ID %d is not desired", detection.id);
+                }
+            } else {
+                // This tag is NOT in the library, so we don't have enough information to track to it.
+                myOpMode.telemetry.addData("Unknown", "Tag ID %d is not in TagLibrary", detection.id);
+            }
+        }
+        //myOpMode.telemetry.update();
+        return  null;
+    }
+
+    public void  setCameraExposureAndGain(int exposureMS, int gain) {
+        // Wait for the camera to be open, then use the controls
+
+        if (visionPortal == null) {
+            return;
+        }
+
+        // Make sure camera is streaming before we try to set the exposure controls
+        if (visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
+            myOpMode.telemetry.addData("Camera", "Waiting");
+            myOpMode.telemetry.update();
+            while (!myOpMode.isStopRequested() && (visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING)) {
+                myOpMode.sleep(20);
+            }
+            myOpMode.telemetry.addData("Camera", "Ready");
+            myOpMode.telemetry.update();
+        }
+
+        // Set camera controls unless we are stopping.
+        if (!myOpMode.isStopRequested())
+        {
+            ExposureControl exposureControl = visionPortal.getCameraControl(ExposureControl.class);
+            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+                exposureControl.setMode(ExposureControl.Mode.Manual);
+                myOpMode.sleep(50);
+            }
+            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
+            myOpMode.sleep(20);
+            GainControl gainControl = visionPortal.getCameraControl(GainControl.class);
+            gainControl.setGain(gain);
+            myOpMode.sleep(20);
+        }
+    }
 
 }
